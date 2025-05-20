@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Voice Transcriber</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        #recording-status {
+            font-weight: bold;
+            color: green;
+        }
+        #transcription, #chatgpt-response {
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            padding: 10px;
+            white-space: pre-wrap;
+        }
+        audio {
+            margin-top: 10px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Voice Transcriber</h1>
+
+    <h2>Upload or Record WAV File</h2>
+    <form id="upload-form">
+        <button type="button" id="record">Start Recording</button>
+        <button type="button" id="stop" disabled>Stop Recording</button>
+        <p id="recording-status"></p>
+        <input type="file" id="audio-file" name="audio_data" accept=".wav">
+        <button type="submit">Upload and Transcribe</button>
+    </form>
+
+    <h2>Transcription:</h2>
+    <div id="transcription"></div>
+
+    <h2>ChatGPT Response:</h2>
+    <div id="chatgpt-response"></div>
+
+    <h2>Synthesized Audio:</h2>
+    <audio id="synthesized-audio" controls></audio>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioBlob;
+
+        const recordButton = document.getElementById('record');
+        const stopButton = document.getElementById('stop');
+        const recordingStatus = document.getElementById('recording-status');
+        const transcriptionDiv = document.getElementById('transcription');
+        const chatgptResponseDiv = document.getElementById('chatgpt-response');
+        const synthesizedAudio = document.getElementById('synthesized-audio');
+        const uploadForm = document.getElementById('upload-form');
+        const audioFileInput = document.getElementById('audio-file');
+
+        recordButton.addEventListener('click', async () => {
+            recordButton.disabled = true;
+            stopButton.disabled = false;
+            recordingStatus.textContent = 'Recording...';
+
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = event => {
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = async () => {
+                audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const file = new File([audioBlob], 'recorded_audio.wav', { type: 'audio/wav' });
+
+                // Create a DataTransfer to simulate a file input
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                audioFileInput.files = dataTransfer.files;
+
+                recordingStatus.textContent = 'Recording stopped.';
+            };
+
+            mediaRecorder.start();
+        });
+
+        stopButton.addEventListener('click', () => {
+            recordButton.disabled = false;
+            stopButton.disabled = true;
+            recordingStatus.textContent = '';
+            mediaRecorder.stop();
+        });
+
+        uploadForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const file = audioFileInput.files[0];
+            if (!file) {
+                alert('Please select or record a WAV file to upload.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('audio_data', file);
+
+            try {
+                const response = await fetch('/transcribe', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                transcriptionDiv.textContent = data.transcription || 'No transcription available.';
+                chatgptResponseDiv.textContent = data.chatgpt_response || 'No ChatGPT response available.';
+                if (data.audio_url) {
+                    synthesizedAudio.src = data.audio_url;
+                    synthesizedAudio.load();
+                    synthesizedAudio.play();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred during transcription. Please try again.');
+            }
+        });
+    </script>
+</body>
+</html>
