@@ -51,7 +51,6 @@
     <script>
         let mediaRecorder;
         let audioChunks = [];
-        let audioBlob;
 
         const recordButton = document.getElementById('record');
         const stopButton = document.getElementById('stop');
@@ -78,10 +77,9 @@
             };
 
             mediaRecorder.onstop = async () => {
-                audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                 const file = new File([audioBlob], 'recorded_audio.wav', { type: 'audio/wav' });
 
-                // Create a DataTransfer to simulate a file input
                 const dataTransfer = new DataTransfer();
                 dataTransfer.items.add(file);
                 audioFileInput.files = dataTransfer.files;
@@ -123,8 +121,11 @@
                 const data = await response.json();
                 transcriptionDiv.textContent = data.transcription || 'No transcription available.';
                 chatgptResponseDiv.textContent = data.chatgpt_response || 'No ChatGPT response available.';
+
                 if (data.audio_url) {
-                    synthesizedAudio.src = data.audio_url;
+                    // add timestamp to bust browser cache
+                    const timestamp = new Date().getTime();
+                    synthesizedAudio.src = `${data.audio_url}?t=${timestamp}`;
                     synthesizedAudio.load();
                     synthesizedAudio.play();
                 }

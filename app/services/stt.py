@@ -2,7 +2,9 @@ import torch
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 import time
 
-model_id = "openai/whisper-large-v3"
+# model_id = "openai/whisper-large-v3"
+# model_id = "sarpba/whisper-hu-tiny-finetuned-V2"
+model_id = "sarpba/whisper-hu-large-v3-turbo-finetuned"
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 print("CUDA available:", torch.cuda.is_available())
