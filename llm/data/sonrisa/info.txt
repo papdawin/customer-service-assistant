@@ -1,0 +1,13 @@
+Sonrisa Kft. egy magyar informatikai vállalkozás, amely 2006-ban alakult.
+Fő profiljuk a szoftverfejlesztés, mobil- és webalkalmazások készítése,
+valamint IT tanácsadás.
+
+Szolgáltatások:
+- Egyedi üzleti alkalmazások fejlesztése
+- Mobilapp fejlesztés (Android és iOS)
+- Webes rendszerek és portálok kialakítása
+- Felhőalapú megoldások
+- IT tanácsadás és rendszerintegráció
+
+Céljuk, hogy innovatív, felhasználóbarát és skálázható megoldásokat nyújtsanak
+hazai és nemzetközi ügyfelek számára.

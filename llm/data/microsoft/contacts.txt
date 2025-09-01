@@ -1,0 +1,14 @@
+HR Department:
+- Name: Sarah Johnson
+- Email: sarah.johnson@acme.com
+- Phone: +1 (555) 123-4567
+
+IT Support:
+- Name: Michael Chen
+- Email: helpdesk@acme.com
+- Phone: +1 (555) 987-6543
+
+Facilities:
+- Name: Laura Gomez
+- Email: facilities@acme.com
+- Phone: +1 (555) 222-8899

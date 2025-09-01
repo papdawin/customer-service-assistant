@@ -1,0 +1,48 @@
+services:
+  vllm:
+    image: vllm/vllm-openai:v0.10.1
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True   # <= keep or remove
+    command: >
+      --model Qwen/Qwen2.5-3B-Instruct-AWQ
+      --quantization awq
+      --dtype float16
+      --max-model-len 256
+      --max-num-batched-tokens 256
+      --max-num-seqs 1
+      --kv-cache-dtype fp8
+      --gpu-memory-utilization 0.85
+      --port 8000
+    ports: ["8000:8000"]
+    ipc: host
+
+
+
+  rag-microsoft:
+    build: ./rag
+    environment:
+      - TENANT_ID=microsoft
+      - VLLM_BASE_URL=http://vllm:8000/v1
+      - OPENAI_API_KEY=asd
+    volumes:
+      - ./data/microsoft:/app/data:ro
+      - ./indices/microsoft:/app/indices
+    depends_on: [vllm]
+    ports:
+      - "8101:8080"
+
+  rag-sonrisa:
+    build: ./rag
+    environment:
+      - TENANT_ID=sonrisa
+      - VLLM_BASE_URL=http://vllm:8000/v1
+      - OPENAI_API_KEY=asd
+    volumes:
+      - ./data/sonrisa:/app/data:ro
+      - ./indices/sonrisa:/app/indices
+    depends_on: [vllm]
+    ports:
+      - "8102:8080"
