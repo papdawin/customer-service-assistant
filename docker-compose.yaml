@@ -1,0 +1,79 @@
+services:
+  vllm:
+    build:
+      context: .
+      dockerfile: Dockerfile.vllm
+    gpus: all
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=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
+      - CUDA_VISIBLE_DEVICES=0,1,2,3
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - NCCL_IB_DISABLE=1
+    command: >
+      --model google/gemma-3-27b-it
+      --dtype bfloat16
+      --tensor-parallel-size 4
+      --port 8000
+    ports: ["8000:8000"]
+    ipc: host
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+  rag-microsoft:
+    build: ./rag
+    command: ["uvicorn","app:app","--host","0.0.0.0","--port","8080"]
+    environment:
+      - TENANT_ID=microsoft
+      - VLLM_BASE_URL=http://vllm:8000/v1
+      - OPENAI_API_KEY=asd
+    volumes:
+      - ./data/microsoft:/app/data:ro
+      - indices_microsoft:/app/indices
+    ports: ["8101:8080"]
+
+  rag-sonrisa:
+    build: ./rag
+    command: ["uvicorn","app:app","--host","0.0.0.0","--port","8080"]
+    environment:
+      - TENANT_ID=sonrisa
+      - VLLM_BASE_URL=http://vllm:8000/v1
+      - OPENAI_API_KEY=asd
+    volumes:
+      - ./data/sonrisa:/app/data:ro
+      - indices_sonrisa:/app/indices
+    ports: ["8102:8080"]
+
+  stt:
+    build: ./stt
+    gpus: all
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+      - HUGGING_FACE_HUB_TOKEN=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
+      - STT_DEVICE=auto
+      - STT_COMPUTE_TYPE=auto
+      - STT_MODEL_ID=sarpba/faster-base-hungarian_int8_V2
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    ports: ["5001:5001"]
+
+  tts:
+    build: ./tts
+    environment:
+      - PIPER_VOICE=/voices/hu_HU-berta-medium.onnx
+      - PIPER_VOICE_JSON=/voices/hu_HU-berta-medium.onnx.json
+      - TTS_DEVICE=cpu               # set "cuda" to try GPU
+    ports: ["5002:5002"]
+
+  web:
+    build: ./web
+    environment:
+      - STT_URL=http://stt:5001/transcribe
+      - RAG_URL=http://rag-sonrisa:8080/query
+      - TTS_URL=http://tts:5002/speak
+    ports: ["8090:8090"]
+
+volumes:
+  hf_cache:
+  indices_microsoft:
+  indices_sonrisa:

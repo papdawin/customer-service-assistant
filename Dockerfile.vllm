@@ -1,0 +1,11 @@
+# You can pin to the version you use; here I keep your "latest".
+# If you prefer, switch to: vllm/vllm-openai:0.10.1
+FROM vllm/vllm-openai:latest
+
+# Upgrade to a recent / latest stack compatible with Gemma 3
+# (the <5 guard avoids accidental v5 API breaks)
+RUN pip install --no-cache-dir --upgrade \
+    "transformers>=4.53.0,<5" \
+    "huggingface-hub>=0.24.6" \
+    "tokenizers>=0.19.1" \
+    "accelerate>=0.33.0"
