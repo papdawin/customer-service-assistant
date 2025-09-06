@@ -65,13 +65,25 @@ services:
       - TTS_DEVICE=cpu               # set "cuda" to try GPU
     ports: ["5002:5002"]
 
-  web:
+  web-sonrisa:
     build: ./web
     environment:
       - STT_URL=http://stt:5001/transcribe
       - RAG_URL=http://rag-sonrisa:8080/query
       - TTS_URL=http://tts:5002/speak
+      - COMPANY=Sonrisa
+      - PORT=8090
     ports: ["8090:8090"]
+
+  web-microsoft:
+    build: ./web
+    environment:
+      - STT_URL=http://stt:5001/transcribe
+      - RAG_URL=http://rag-microsoft:8080/query
+      - TTS_URL=http://tts:5002/speak
+      - COMPANY=Microsoft
+      - PORT=8091
+    ports: ["8091:8091"]
 
 volumes:
   hf_cache:
