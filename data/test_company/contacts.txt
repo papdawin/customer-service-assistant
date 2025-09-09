@@ -1,4 +1,4 @@
-Sonrisa Kft. – Kapcsolati adatok
+Test Kft. – Kapcsolati adatok
 
 Központi iroda címe:
 1117 Budapest, Infopark sétány 1. (C épület)
@@ -7,7 +7,7 @@ Telefon:
 +36 1 234 5678
 
 E-mail:
-info@sonrisa.hu
+info@test.hu
 
 Ügyfélszolgálat nyitvatartás:
 Hétfő–Péntek: 9:00–17:00

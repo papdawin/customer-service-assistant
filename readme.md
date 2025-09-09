@@ -1,155 +1,115 @@
-# 🗣️ LLM Assistant for AI-Powered Customer Service Phone System
+# 🎙️ Hungarian Voice Assistant (RAG + STT + TTS + LLM + Web)
 
-This project is an intelligent **AI Customer Service Phone Assistant**, tailored for **Hungarian-language** telephonic interactions. It integrates:
+An AI-powered **voice assistant application** designed for Hungarian-language customer service.
+It leverages **Speech-to-Text (STT)**, **Retrieval-Augmented Generation (RAG)**, **Large Language Models (LLM)**, and **Text-to-Speech (TTS)** to deliver real-time, interactive voice conversations through a browser-based interface.
 
-* 🎙️ **Speech-to-Text (STT)** – Fine-tuned Whisper Large
-* 🧠 **Large Language Model (LLM)** – currently via OpenAI API
-* 🔊 **Text-to-Speech (TTS)** – Fine-tuned XTTS from Coqui
 
----
+## ⚙️ Microservices
+
+* **LLM:** [vLLM](https://github.com/vllm-project/vllm) serving Google Gemma-3-27B-IT
+* **STT:** `sarpba/faster-base-hungarian_int8_V2` (Whisper-finetune)
+* **TTS:** [Piper](https://github.com/rhasspy/piper) with Hungarian voice (`hu_HU-berta-medium`)
+* **RAG:** Custom FastAPI app with vector indices per tenant
+* **Frontend:** Lightweight web interface (JS/HTML)
+
+![Architecture diagram](https://raw.githubusercontent.com/papdawin/customer-service-assistant/refs/heads/master/pictures/diagram.png)
+
+Other info
+
+* **Containerization:** Docker + Docker Compose
+* **GPU Acceleration:** CUDA-enabled inference for LLM/STT/TTS
+
+
 
 ## 📁 Project Structure
 
+```bash
+.
+├── rag/                       # Retrieval-Augmented Generation service
+│   ├── app.py 
+│   ├── requirements.txt
+│   └── Dockerfile
+├── stt/                       # Speech-to-Text microservice
+│   ├── app.py 
+│   ├── requirements.txt
+│   └── Dockerfile
+├── tts/                       # Text-to-Speech microservice
+│   ├── app.py
+│   └── Dockerfile
+├── web/                       # Web UI for voice assistant
+│   ├── app.py 
+│   ├── requirements.txt
+│   └── Dockerfile
+├── data/
+│   ├── microsoft/             # Microsoft tenant documents
+│   └── sonrisa/               # Sonrisa tenant documents
+├── Dockerfile.vllm            # vLLM inference container
+├── docker-compose.yml         # Main compose file
+└── README.md                  # This documentation
 ```
-LLM-assistant/
-├── app/
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── llm.py          # Handles OpenAI LLM interactions
-│   │   ├── stt.py          # Speech-to-Text processing
-│   │   ├── tts.py          # Text-to-Speech processing
-│   ├── static/
-│   │   ├── script.js       # Web client logic
-│   ├── templates/
-│   │   ├── index.html      # Web UI
-│   │── __init__.py
-│   │── config.py           # Configuration setup
-│   │── routes.py           # Flask app routes
-├── uploads/                # Uploaded audio files (user input)
-├── .dockerignore
-├── .env
-├── .gitignore
-├── Dockerfile
-├── environment.yml
-├── main.py                 # Flask app entry
-├── requirements.txt
-```
-
----
 
 ## 🚀 Getting Started
 
-### 📦 Local installation
+### 1. Add your documents
+
+The RAG system expects txt files to be present in the company's directory
+
+### 2. Start with Docker Compose
 
 ```bash
-# Using pip
-pip install -r requirements.txt
-
-# Or with conda
-conda env create -f environment.yml
-conda activate llm-assistant
+docker compose up --build -d
 ```
 
-### 🏁 Run the Application
+This will spin up:
 
-```bash
-python main.py
-```
+* **vLLM** on `localhost:8000`
+* **RAG Services** (Example Company: `8101`, Test Company: `8102`)
+* **STT** on `5001`
+* **TTS** on `5002`
+* **Web Interfaces:**
 
-Open your browser at [http://localhost:5000](http://localhost:5000)
+  * Example Company: [http://localhost:8090](http://localhost:8090)
+  * Test Company: [http://localhost:8091](http://localhost:8091)
 
----
+## ⚙️ Extension
+
+You may extend the services and provide it to another company, by copying the template (RAG and web containers) and creating other document holder files in the data folder.
 
 ## 🧠 Component Overview
 
-### 🔊 Text-to-Speech (TTS)
+### 🔊 STT (Speech-to-Text)
 
-Converts AI-generated text into **natural Hungarian speech**.
+* **Model:** `sarpba/faster-base-hungarian_int8_V2`
+* **Reasoning:** Lightweight quantized model for fast, accurate Hungarian transcription.
+* **Alternatives Considered:** OpenAI Whisper (slower), Coqui STT (lower accuracy)
 
-* ✅ **Currently using:** [Coqui XTTS](https://github.com/coqui-ai/TTS) with a **fine-tuned Hungarian model**
-* 📦 Supports expressive multilingual synthesis
-* 💡 XTTS enables cross-lingual transfer with high audio quality
+### 🧾 RAG (Retrieval-Augmented Generation)
 
-**Alternatives explored:**
+* **Approach:** FAISS-based document index per tenant
+* **Strength:** Ensures company-specific answers (Example company / Test company)
 
-* F5 TTS – Promising, with a story-telling style, but was abandoned due to slow procesing times
-* google-tts – Calls an online API
-* facebook/mms-tts-hun - Doesn't sound that good
+### 🧠 LLM
 
----
+* **Model:** `google/gemma-3-27b-it` served with vLLM
+* **Precision:** bfloat16
+* **Parallelism:** 4-way tensor parallelism for multi-GPU scaling, the machine I was testing the solution on had 4 GPUs
 
-### 🗣️ Speech-to-Text (STT)
+### 🗣️ TTS (Text-to-Speech)
 
-Transcribes **Hungarian spoken input** to text.
-
-* ✅ **Currently using:** **Fine-tuned [Whisper Large](https://github.com/openai/whisper)** model for Hungarian
-* 📍 Local deployment for real-time performance
-* 🎯 Optimized for domain-specific (Hun/Eng, one at a time) customer service vocabulary
-
-**Alternatives explored:**
-
-* Multilanguage whisper – Fast, lightweight, but picks up words from other languages
-
----
-
-### 🧠 Large Language Model (LLM)
-
-Provides the intelligence and conversation flow.
-
-* ✅ **Currently using: OpenAI API**
-* 💬 Handles natural language understanding and response generation
-* 🧩 Summarizes answers as to nat take too long on the phone
-
-**Alternatives considered:**
-
-*none - as of yet*
-
----
+* **Engine:** Piper
+* **Voice:** `hu_HU-berta-medium.onnx`
 
 ## 🔍 Experimentation Summary
-| Component | Methodology Explored                                         | Final Approach                      | Rationale                                                                                |
-| --------- |--------------------------------------------------------------| ----------------------------------- | ---------------------------------------------------------------------------------------- |
-| **TTS**   | Coqui XTTS, F5 TTS, google-tts, facebook/mms-tts-hun         | ✅ **Fine-tuned Coqui XTTS (HU)**    | Best-in-class Hungarian voice quality, expressive, multilingual support                  |
-| **STT**   | Whisper Large (multilingual)                                 | ✅ **Fine-tuned Whisper Large (HU)** | High accuracy and real-time performance for Hungarian customer service use               |
-| **LLM**   | OpenAI GPT-4  | ✅ **OpenAI GPT-3.5 API**            | Reliable generation, robust dialogue management; future-proof for fallback to local LLMs |
 
----
+| Component | Options Explored                     | Final Choice          | Reason                               |
+| --------- | ------------------------------------ | --------------------- | ------------------------------------ |
+| STT       | Whisper large, faster-whisper, Coqui | sarpba's Whisper fine-tune | Best speed      |
+| LLM       | GPT-4, Mistral, Gemma                | Gemma-3-27B-IT        | Best Hungarian support + self-hosted |
+| TTS       | gTTS, Piper, Coqui                   | Piper (Berta voice)   | Good quality and speed      |
 
-## 💡 Potential Future Enhancements
 
-* 📞 Integrate **SIP/VoIP** for real phone calls (e.g. Twilio)
-* 🧠 Add **RAG** integration for retrieval-augmented responses
-* 📈 Add calendar and other system integration tools, maybe Agent-to-Agent protocol
-* 🔐 Move LLM inference to **on-premise or private cloud** and multi-containerize the application
-* 🗣️ Support multilingual switching in real-time
+## 🔐 Security & Privacy Considerations
 
----
-
-## 🛡️ Environment & Deployment
-
-### Environment Variables (`.env`)
-
-```
-OPENAI_API_KEY=your_openai_api_key
-UPLOAD_FOLDER=uploads_folder_location
-STATIC_FOLDER=static_folder_location
-DEBUG=whether_to_enable_debug_mode
-```
-
-### Docker Support
-
-```bash
-docker build -t llm-assistant .
-docker run -p 5000:5000 llm-assistant
-```
-
-or you may pull it from dockerhub, it's publicly available at [pdwn/assistant:latest](https://hub.docker.com/r/pdwn/assistant)
-
-```bash
-docker pull pdwn/assistant:latest
-```
----
-
-## 📬 Contact
-
-Have questions or suggestions? Open an issue or reach out directly.
+* **API Keys:** Loaded via `.env` or Docker Compose `environment`.
+* **Audio Data:** Processed in-memory, not persisted.
+* **Multi-Tenant Isolation:** Separate RAG indices for The companies, which adds a layer of separation, and caompanies can use the same LLM securely

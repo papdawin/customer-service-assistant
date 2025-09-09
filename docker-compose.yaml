@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile.vllm
     gpus: all
     environment:
-      - HUGGING_FACE_HUB_TOKEN=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
+      - HUGGING_FACE_HUB_TOKEN=
       - CUDA_VISIBLE_DEVICES=0,1,2,3
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
@@ -20,28 +20,28 @@ services:
     ipc: host
     volumes:
       - hf_cache:/root/.cache/huggingface
-  rag-microsoft:
+  rag-examplecompany:
     build: ./rag
     command: ["uvicorn","app:app","--host","0.0.0.0","--port","8080"]
     environment:
-      - TENANT_ID=microsoft
+      - TENANT_ID=examplecompany
       - VLLM_BASE_URL=http://vllm:8000/v1
       - OPENAI_API_KEY=asd
     volumes:
-      - ./data/microsoft:/app/data:ro
-      - indices_microsoft:/app/indices
+      - ./data/examplecompany:/app/data:ro
+      - indices_examplecompany:/app/indices
     ports: ["8101:8080"]
 
-  rag-sonrisa:
+  rag-testcompany:
     build: ./rag
     command: ["uvicorn","app:app","--host","0.0.0.0","--port","8080"]
     environment:
-      - TENANT_ID=sonrisa
+      - TENANT_ID=testcompany
       - VLLM_BASE_URL=http://vllm:8000/v1
       - OPENAI_API_KEY=asd
     volumes:
-      - ./data/sonrisa:/app/data:ro
-      - indices_sonrisa:/app/indices
+      - ./data/testcompany:/app/data:ro
+      - indices_testcompany:/app/indices
     ports: ["8102:8080"]
 
   stt:
@@ -49,7 +49,7 @@ services:
     gpus: all
     environment:
       - HF_HOME=/root/.cache/huggingface
-      - HUGGING_FACE_HUB_TOKEN=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
+      - HUGGING_FACE_HUB_TOKEN=
       - STT_DEVICE=auto
       - STT_COMPUTE_TYPE=auto
       - STT_MODEL_ID=sarpba/faster-base-hungarian_int8_V2
@@ -65,27 +65,27 @@ services:
       - TTS_DEVICE=cpu               # set "cuda" to try GPU
     ports: ["5002:5002"]
 
-  web-sonrisa:
+  web-testcompany:
     build: ./web
     environment:
       - STT_URL=http://stt:5001/transcribe
-      - RAG_URL=http://rag-sonrisa:8080/query
+      - RAG_URL=http://rag-testcompany:8080/query
       - TTS_URL=http://tts:5002/speak
-      - COMPANY=Sonrisa
+      - COMPANY=testcompany
       - PORT=8090
     ports: ["8090:8090"]
 
-  web-microsoft:
+  web-examplecompany:
     build: ./web
     environment:
       - STT_URL=http://stt:5001/transcribe
-      - RAG_URL=http://rag-microsoft:8080/query
+      - RAG_URL=http://rag-examplecompany:8080/query
       - TTS_URL=http://tts:5002/speak
-      - COMPANY=Microsoft
+      - COMPANY=examplecompany
       - PORT=8091
     ports: ["8091:8091"]
 
 volumes:
   hf_cache:
-  indices_microsoft:
-  indices_sonrisa:
+  indices_examplecompany:
+  indices_testcompany:
