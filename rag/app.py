@@ -27,7 +27,7 @@ INDEX_DIR = os.path.join(INDEX_BASE_DIR, TENANT_ID)  # per-tenant isolation
 
 VLLM_BASE_URL = os.getenv("VLLM_BASE_URL")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "dummy")
-LLM_MODEL = os.getenv("LLM_MODEL", "google/gemma-3-27b-it")  # good multilingual baseline
+LLM_MODEL = os.getenv("LLM_MODEL", "Qwen/Qwen3-4B")  # good multilingual baseline
 
 # Retrieval & ingestion
 TOP_K = int(os.getenv("TOP_K", "3"))
@@ -123,6 +123,12 @@ def format_docs(docs: List[Document]) -> str:
 # ----------------------------
 # Index build / load
 # ----------------------------
+def _retrieve(retriever, query: str):
+    # Compat with older/newer LangChain
+    if hasattr(retriever, "get_relevant_documents"):
+        return retriever.get_relevant_documents(query)
+    return retriever.invoke(query)
+
 def _to_passage(text: str) -> str:
     # e5 expects "passage: ..." for docs
     return f"passage: {text.strip()}"
@@ -269,7 +275,7 @@ def query(response: Response, payload: Query = Body(...)):
     # 1) Retrieval (+ optional rerank)
     tr0 = time.perf_counter()
     q = f"query: {payload.question.strip()}"  # e5 query prefix
-    docs = app.state.retriever.get_relevant_documents(q)
+    docs = _retrieve(app.state.retriever, q)
     docs = _maybe_rerank(q, docs, RERANK_TOP_N)
     tr1 = time.perf_counter()
     ctx = format_docs(docs)

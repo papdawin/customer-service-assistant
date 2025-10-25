@@ -6,15 +6,15 @@ services:
     gpus: all
     environment:
       - HUGGING_FACE_HUB_TOKEN=
-      - CUDA_VISIBLE_DEVICES=0,1,2,3
-      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - NCCL_IB_DISABLE=1
     command: >
-      --model google/gemma-3-27b-it
+      --model Qwen/Qwen3-4B
       --dtype bfloat16
-      --tensor-parallel-size 4
+      --tensor-parallel-size 1
       --port 8000
     ports: ["8000:8000"]
     ipc: host
