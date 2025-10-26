@@ -211,18 +211,9 @@ async function startAuto() {
   stopBtn.disabled   = true;
 
   const data = new Uint8Array(analyser.fftSize);
-  const SILENCE_THRESHOLD = 0.010;  // adjust for room/mic
+  const SILENCE_THRESHOLD = 0.015;  // adjust for room/mic
   const SILENCE_MS        = 600;    // pause length to end utterance
-  const TALK_ARM_MS       = 20;    // small debounce before starting
-  // gyorsabb vizsgálat
-  const VAD_PERIOD_MS   = 20;
-
-  // Float time-domain
-  const data = new Float32Array(analyser.fftSize);
-
-  // 300–400 ms előpuffer (~20ms/frame esetén 15–20 frame)
-  const PRE_FRAMES = Math.ceil(400 / VAD_PERIOD_MS);
-  let preBuffer = []; // ide Float32Array frame-ek mennek
+  const TALK_ARM_MS       = 100;    // small debounce before starting
 
   let silenceStart = performance.now();
   let voicedStart  = null;
@@ -238,10 +229,6 @@ async function startAuto() {
     }
     const rms = Math.sqrt(sum / data.length);
     const now = performance.now();
-
-        // körkörös előpuffer karbantartása
-    preBuffer.push(Float32Array.from(data));
-    if (preBuffer.length > PRE_FRAMES) preBuffer.shift();
 
     if (rms > SILENCE_THRESHOLD) {
       // voice present
@@ -261,7 +248,7 @@ async function startAuto() {
         capturing = false;
       }
     }
-  }, VAD_PERIOD_MS);
+  }, 100);
 }
 
 async function stopAuto() {
