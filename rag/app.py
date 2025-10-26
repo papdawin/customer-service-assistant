@@ -224,6 +224,7 @@ llm = ChatOpenAI(
     top_p=0.9,
     timeout=60,
     max_retries=2,
+    extra_body={"chat_template_kwargs": {"enable_thinking": False}},
 )
 
 # ----------------------------
