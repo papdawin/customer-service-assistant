@@ -4,7 +4,7 @@ import time
 from typing import List, Optional, Tuple
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Body, Response
+from fastapi import FastAPI, Body, Response, HTTPException
 from pydantic import BaseModel
 
 from langchain_community.vectorstores import FAISS
@@ -138,14 +138,30 @@ def load_or_build_index(force_rebuild: bool = False) -> FAISS:
     os.makedirs(INDEX_DIR, exist_ok=True)
     faiss_path = os.path.join(INDEX_DIR, "faiss_index")
 
-    if (not force_rebuild) and os.path.exists(faiss_path):
-        return FAISS.load_local(
-            faiss_path,
-            embeddings,
-            allow_dangerous_deserialization=ALLOW_DANGEROUS_DESER,
-        )
-
     files = sorted(glob.glob(os.path.join(DATA_DIR, "**/*.txt"), recursive=True))
+
+    if (not force_rebuild) and os.path.exists(faiss_path):
+        try:
+            vs = FAISS.load_local(
+                faiss_path,
+                embeddings,
+                allow_dangerous_deserialization=ALLOW_DANGEROUS_DESER,
+            )
+            doc_total = getattr(vs.index, "ntotal", None)
+            sources = set()
+            try:
+                sources = {doc.metadata.get("source") for doc in vs.docstore._dict.values()}
+            except Exception:
+                pass
+
+            placeholder_index = "empty" in sources or (doc_total == 0)
+            if files and placeholder_index:
+                print("[RAG] Existing FAISS index is placeholder; rebuilding from disk data.")
+            else:
+                return vs
+        except Exception as exc:
+            print(f"[RAG] Failed to load FAISS index (will rebuild): {exc!r}")
+
     docs: List[Document] = []
     for fp in files:
         try:
@@ -163,16 +179,25 @@ def load_or_build_index(force_rebuild: bool = False) -> FAISS:
         )
 
     if not docs:
+        if files:
+            print("[RAG] No non-empty documents found; creating placeholder index.")
+        else:
+            print("[RAG] No .txt files found; creating placeholder index.")
         vs = FAISS.from_texts(
             ["passage: "], embeddings, metadatas=[{"tenant": TENANT_ID, "source": "empty"}]
         )
         vs.save_local(faiss_path)
         return vs
 
+    print(f"[RAG] Building FAISS index from {len(docs)} document chunks.")
     splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP)
     chunks = splitter.split_documents(docs)
     vs = FAISS.from_documents(chunks, embeddings)
     vs.save_local(faiss_path)
+    try:
+        print(f"[RAG] Finished indexing; ntotal={getattr(vs.index, 'ntotal', 'unknown')}")
+    except Exception:
+        pass
     return vs
 
 def make_retriever(vs: FAISS):
@@ -231,12 +256,41 @@ llm = ChatOpenAI(
 # FastAPI app with lifespan
 # ----------------------------
 class Query(BaseModel):
-    question: str
+    question: Optional[str] = None
+    text: Optional[str] = None
+
+    def prompt(self) -> str:
+        value = (self.question or self.text or "").strip()
+        if not value:
+            raise ValueError("Empty question/text payload")
+        return value
+
+
+def _log_data_dir_contents() -> None:
+    print(f"[RAG] Tenant '{TENANT_ID}' using data dir: {DATA_DIR}")
+    if not os.path.isdir(DATA_DIR):
+        print(f"[RAG] Data dir missing for tenant '{TENANT_ID}'")
+        return
+    txt_files = sorted(glob.glob(os.path.join(DATA_DIR, "**/*.txt"), recursive=True))
+    if not txt_files:
+        print(f"[RAG] No .txt files found under {DATA_DIR}")
+        return
+    print(f"[RAG] Found {len(txt_files)} .txt files:")
+    for fp in txt_files:
+        rel = os.path.relpath(fp, DATA_DIR)
+        size = os.path.getsize(fp)
+        print(f"  - {rel} ({size} bytes)")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _log_data_dir_contents()
     app.state.vectorstore = load_or_build_index(force_rebuild=False)
     app.state.retriever = make_retriever(app.state.vectorstore)
+    try:
+        doc_total = getattr(app.state.vectorstore.index, "ntotal", None)
+        print(f"[RAG] Loaded FAISS index for tenant '{TENANT_ID}' (ntotal={doc_total})")
+    except Exception as exc:
+        print(f"[RAG] Failed to introspect FAISS index: {exc!r}")
     yield
 
 app = FastAPI(title=f"RAG Service – {TENANT_ID}", version="1.3.0", lifespan=lifespan)
@@ -275,15 +329,26 @@ def query(response: Response, payload: Query = Body(...)):
 
     # 1) Retrieval (+ optional rerank)
     tr0 = time.perf_counter()
-    q = f"query: {payload.question.strip()}"  # e5 query prefix
+    try:
+        question = payload.prompt()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Empty question/text payload")
+    print(f"[RAG] Incoming question: {question}")
+    q = f"query: {question}"  # e5 query prefix
     docs = _retrieve(app.state.retriever, q)
     docs = _maybe_rerank(q, docs, RERANK_TOP_N)
     tr1 = time.perf_counter()
     ctx = format_docs(docs)
+    sources = [d.metadata.get("source", "unknown") for d in docs]
+    preview = ctx[:800]
+    if len(ctx) > 800:
+        preview += " …"
+    print(f"[RAG] Retrieved {len(docs)} docs for tenant '{TENANT_ID}': {sources}")
+    print(f"[RAG] Context preview:\n{preview}")
 
     # 2) LLM call
     tl0 = time.perf_counter()
-    messages = prompt.format_messages(question=payload.question, context=ctx)
+    messages = prompt.format_messages(question=question, context=ctx)
     resp = llm.invoke(messages)
     tl1 = time.perf_counter()
 
@@ -298,5 +363,5 @@ def query(response: Response, payload: Query = Body(...)):
         "answer": resp.content,
         "tenant": TENANT_ID,
         "timings": {"retrieval_ms": retrieval_ms, "llm_ms": llm_ms, "total_ms": total_ms},
-        "sources": [d.metadata.get("source", "unknown") for d in docs],
+        "sources": sources,
     }

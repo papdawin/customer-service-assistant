@@ -6,16 +6,18 @@ services:
     gpus: all
     environment:
       - HUGGING_FACE_HUB_TOKEN=
-      - CUDA_VISIBLE_DEVICES=0
-      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_VISIBLE_DEVICES=2,3
+      - NVIDIA_VISIBLE_DEVICES=2,3
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - NCCL_IB_DISABLE=1
-    command: >
-      --model Qwen/Qwen3-4B
-      --dtype bfloat16
-      --tensor-parallel-size 1
-      --port 8000
+    command:
+      - "--model=Qwen/Qwen3-4B"
+      - "--dtype=bfloat16"
+      - "--tensor-parallel-size=1"
+      - "--gpu-memory-utilization=0.7"
+      - "--max-model-len=4096"
+      - "--port=8000"
     ports: ["8000:8000"]
     ipc: host
     volumes:
@@ -28,7 +30,7 @@ services:
       - VLLM_BASE_URL=http://vllm:8000/v1
       - OPENAI_API_KEY=asd
     volumes:
-      - ./data/examplecompany:/app/data:ro
+      - ./data/example_company:/app/data:ro
       - indices_examplecompany:/app/indices
     ports: ["8101:8080"]
 
@@ -40,7 +42,7 @@ services:
       - VLLM_BASE_URL=http://vllm:8000/v1
       - OPENAI_API_KEY=asd
     volumes:
-      - ./data/testcompany:/app/data:ro
+      - ./data/test_company:/app/data:ro
       - indices_testcompany:/app/indices
     ports: ["8102:8080"]
 
