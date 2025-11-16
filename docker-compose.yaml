@@ -28,7 +28,6 @@ services:
     environment:
       - TENANT_ID=examplecompany
       - VLLM_BASE_URL=http://vllm:8000/v1
-      - OPENAI_API_KEY=asd
     volumes:
       - ./data/example_company:/app/data:ro
       - indices_examplecompany:/app/indices
@@ -40,7 +39,6 @@ services:
     environment:
       - TENANT_ID=testcompany
       - VLLM_BASE_URL=http://vllm:8000/v1
-      - OPENAI_API_KEY=asd
     volumes:
       - ./data/test_company:/app/data:ro
       - indices_testcompany:/app/indices

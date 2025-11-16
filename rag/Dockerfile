@@ -9,7 +9,7 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # App code
-COPY app.py /app/app.py
+COPY . /app
 
 # Create non-root user, create dirs as root, then chown, THEN drop privileges
 RUN useradd -m appuser \
