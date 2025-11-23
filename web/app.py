@@ -213,10 +213,9 @@ async function startAuto() {
   const data = new Uint8Array(analyser.fftSize);
   const SILENCE_THRESHOLD = 0.015;  // adjust for room/mic
   const SILENCE_MS        = 600;    // pause length to end utterance
-  const TALK_ARM_MS       = 100;    // small debounce before starting
+  const VAD_INTERVAL_MS   = 25;     // tighter polling to start instantly
 
   let silenceStart = performance.now();
-  let voicedStart  = null;
 
   vadTimer = setInterval(() => {
     analyser.getByteTimeDomainData(data);
@@ -233,22 +232,18 @@ async function startAuto() {
     if (rms > SILENCE_THRESHOLD) {
       // voice present
       if (!capturing) {
-        if (voicedStart === null) voicedStart = now;
-        if (now - voicedStart > TALK_ARM_MS) {
-          onVoiceStart();
-          capturing = true;
-        }
+        onVoiceStart();   // start recording immediately on first voice frame
+        capturing = true;
       }
       silenceStart = now;
     } else {
       // silence
-      voicedStart = null;
       if (capturing && (now - silenceStart) > SILENCE_MS) {
         onVoiceEnd();
         capturing = false;
       }
     }
-  }, 100);
+  }, VAD_INTERVAL_MS);
 }
 
 async function stopAuto() {

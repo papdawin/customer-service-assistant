@@ -2,19 +2,13 @@ import glob
 import os
 from typing import List
 
+import faiss
+from langchain_community.docstore.in_memory import InMemoryDocstore
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from config import (
-    ALLOW_DANGEROUS_DESER,
-    CHUNK_OVERLAP,
-    CHUNK_SIZE,
-    DATA_DIR,
-    INDEX_DIR,
-    TENANT_ID,
-    TOP_K,
-)
+from config import CHUNK_OVERLAP, CHUNK_SIZE, DATA_DIR, TENANT_ID, TOP_K
 from embeddings import embeddings
 
 
@@ -29,7 +23,7 @@ def log_data_dir_contents() -> None:
     if not os.path.isdir(DATA_DIR):
         print(f"[RAG] Data dir missing for tenant '{TENANT_ID}'")
         return
-    txt_files = sorted(glob.glob(os.path.join(DATA_DIR, '**/*.txt'), recursive=True))
+    txt_files = sorted(glob.glob(os.path.join(DATA_DIR, "**/*.txt"), recursive=True))
     if not txt_files:
         print(f"[RAG] No .txt files found under {DATA_DIR}")
         return
@@ -40,34 +34,9 @@ def log_data_dir_contents() -> None:
         print(f"  - {rel} ({size} bytes)")
 
 
-def load_or_build_index(force_rebuild: bool = False) -> FAISS:
-    """Load the tenant FAISS index from disk, rebuilding from source docs when needed."""
-    os.makedirs(INDEX_DIR, exist_ok=True)
-    faiss_path = os.path.join(INDEX_DIR, "faiss_index")
-
+def build_vector_store() -> FAISS:
+    """Create an in-memory FAISS index from tenant documents."""
     files = sorted(glob.glob(os.path.join(DATA_DIR, "**/*.txt"), recursive=True))
-
-    if (not force_rebuild) and os.path.exists(faiss_path):
-        try:
-            vs = FAISS.load_local(
-                faiss_path,
-                embeddings,
-                allow_dangerous_deserialization=ALLOW_DANGEROUS_DESER,
-            )
-            doc_total = getattr(vs.index, "ntotal", None)
-            sources = set()
-            try:
-                sources = {doc.metadata.get("source") for doc in vs.docstore._dict.values()}
-            except Exception:
-                pass
-
-            placeholder_index = "empty" in sources or (doc_total == 0)
-            if files and placeholder_index:
-                print("[RAG] Existing FAISS index is placeholder; rebuilding from disk data.")
-            else:
-                return vs
-        except Exception as exc:
-            print(f"[RAG] Failed to load FAISS index (will rebuild): {exc!r}")
 
     docs: List[Document] = []
     for path in files:
@@ -85,27 +54,31 @@ def load_or_build_index(force_rebuild: bool = False) -> FAISS:
             )
         )
 
-    if not docs:
-        if files:
-            print("[RAG] No non-empty documents found; creating placeholder index.")
-        else:
-            print("[RAG] No .txt files found; creating placeholder index.")
-        vs = FAISS.from_texts(
-            ["passage: "], embeddings, metadatas=[{"tenant": TENANT_ID, "source": "empty"}]
-        )
-        vs.save_local(faiss_path)
-        return vs
-
-    print(f"[RAG] Building FAISS index from {len(docs)} document chunks.")
     splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP)
-    chunks = splitter.split_documents(docs)
-    vs = FAISS.from_documents(chunks, embeddings)
-    vs.save_local(faiss_path)
+    chunks = splitter.split_documents(docs) if docs else []
+
+    embedding_dim = len(embeddings.embed_query("hello world"))
+    index = faiss.IndexFlatL2(embedding_dim)
+    vector_store = FAISS(
+        embedding_function=embeddings,
+        index=index,
+        docstore=InMemoryDocstore(),
+        index_to_docstore_id={},
+    )
+
+    if chunks:
+        print(f"[RAG] Building FAISS index from {len(chunks)} document chunks (in-memory).")
+        vector_store.add_documents(chunks)
+    else:
+        print("[RAG] No documents found; creating placeholder index.")
+        vector_store.add_texts(
+            ["passage: "], metadatas=[{"tenant": TENANT_ID, "source": "empty"}]
+        )
     try:
-        print(f"[RAG] Finished indexing; ntotal={getattr(vs.index, 'ntotal', 'unknown')}")
+        print(f"[RAG] Finished indexing; ntotal={getattr(vector_store.index, 'ntotal', 'unknown')}")
     except Exception:
         pass
-    return vs
+    return vector_store
 
 
 def make_retriever(vs: FAISS):
@@ -113,4 +86,4 @@ def make_retriever(vs: FAISS):
     return vs.as_retriever(search_kwargs={"k": TOP_K})
 
 
-__all__ = ["load_or_build_index", "make_retriever", "log_data_dir_contents"]
+__all__ = ["build_vector_store", "make_retriever", "log_data_dir_contents"]
