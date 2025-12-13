@@ -65,8 +65,12 @@ services:
     environment:
       - PIPER_VOICE=/voices/hu_HU-berta-medium.onnx
       - PIPER_VOICE_JSON=/voices/hu_HU-berta-medium.onnx.json
-      - TTS_DEVICE=cpu               # set "cuda" to try GPU
+      - TTS_DEVICE=cuda
     ports: ["5002:5002"]
+
+  vad:
+    build: ./vad
+    ports: ["19001:9001"]
 
   web-testcompany:
     build: ./web
@@ -74,9 +78,22 @@ services:
       - STT_URL=http://stt:5001/transcribe
       - RAG_URL=http://rag-testcompany:8080/query
       - TTS_URL=http://tts:5002/speak
+      - VAD_URL=http://vad:9001
       - COMPANY=testcompany
       - PORT=8090
+    depends_on:
+      - vad
     ports: ["8090:8090"]
+
+  web-frontend-testcompany:
+    build: ./web/frontend
+    environment:
+      - API_BASE=http://localhost:8090
+      - TITLE=Voice Assistant UI (testcompany)
+      - PORT=8080
+    depends_on:
+      - web-testcompany
+    ports: ["8080:8080"]
 
   web-examplecompany:
     build: ./web
@@ -84,9 +101,22 @@ services:
       - STT_URL=http://stt:5001/transcribe
       - RAG_URL=http://rag-examplecompany:8080/query
       - TTS_URL=http://tts:5002/speak
+      - VAD_URL=http://vad:9001
       - COMPANY=examplecompany
       - PORT=8091
+    depends_on:
+      - vad
     ports: ["8091:8091"]
+
+  web-frontend-examplecompany:
+    build: ./web/frontend
+    environment:
+      - API_BASE=http://localhost:8091
+      - TITLE=Voice Assistant UI (examplecompany)
+      - PORT=8081
+    depends_on:
+      - web-examplecompany
+    ports: ["8081:8081"]
 
 volumes:
   hf_cache:

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en" data-api-base="{{ api_base }}" data-title="{{ title }}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <script type="module" src="/static/js/main.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <h1>{{ title }}</h1>
+      <p class="lede">Capture microphone audio in real time, stream PCM frames to the processing API, and let the backend orchestrate VAD, STT, RAG, and TTS.</p>
+      <div class="status-bar">
+        <span class="pill" id="healthPill">health: …</span>
+        <span class="pill" id="wsPill">stream: idle</span>
+        <span class="pill" id="vadPill">vad: idle</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Controls</h2>
+        <div class="row">
+          <div>
+            <label for="language">Language</label>
+            <input id="language" value="hu" />
+          </div>
+          <div>
+            <label for="beamSize">Beam size</label>
+            <input id="beamSize" type="number" min="1" max="10" value="5" />
+          </div>
+          <div>
+            <label for="vadAggressiveness">VAD aggressiveness (0–3)</label>
+            <input id="vadAggressiveness" type="number" min="0" max="3" value="3" />
+          </div>
+          <div>
+            <label for="vadFrameMs">VAD frame (ms)</label>
+            <input id="vadFrameMs" type="number" min="10" max="30" step="10" value="10" />
+          </div>
+          <div>
+            <label for="vadSilence">Silence window (ms)</label>
+            <input id="vadSilence" type="number" min="100" max="2000" value="250" />
+          </div>
+        </div>
+        <div class="actions" style="margin-top:12px;">
+          <button class="primary" id="startBtn">Start streaming</button>
+          <button class="ghost" id="stopBtn" disabled>Stop</button>
+          <button class="ghost" id="recordBtn">Send one-shot</button>
+        </div>
+        <p class="small" id="hint">Streaming uses raw PCM over WebSocket; one-shot posts a trimmed WAV clip.</p>
+      </div>
+
+      <div class="card">
+        <h2>Answers</h2>
+        <label>Transcript</label>
+        <pre id="transcript">—</pre>
+        <label style="margin-top:10px;">Answer</label>
+        <pre id="answer">—</pre>
+        <audio id="ttsAudio" controls></audio>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Events</h2>
+      <pre id="log"></pre>
+    </div>
+  </div>
+</body>
+</html>
