@@ -5,7 +5,13 @@ let micStream;
 
 export async function ensureMic() {
   if (micStream) return micStream;
-  micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    },
+  });
   return micStream;
 }
 
