@@ -32,6 +32,7 @@ class FrameRequest(BaseModel):
     frame_ms: int = 10
     aggressiveness: int = 3
     silence_ms: int = 250
+    min_speech_ms: int = 150  # Minimum speech duration before triggering start
     close: bool = False
 
 
@@ -80,11 +81,14 @@ def run_offline_vad(
 
 
 class VadSession:
-    def __init__(self, aggressiveness: int, frame_ms: int, silence_ms: int):
+    def __init__(self, aggressiveness: int, frame_ms: int, silence_ms: int, min_speech_ms: int = 150):
         self.vad = webrtcvad.Vad(aggressiveness)
         self.frame_ms = frame_ms
         self.silence_ms = silence_ms
+        self.min_speech_ms = min_speech_ms  # Minimum speech duration before confirming
         self.in_speech = False
+        self.pending_speech = False  # Speech detected but not yet confirmed
+        self.speech_acc = 0  # Accumulated speech duration
         self.silence_acc = 0
         self.buffer_ms = 0
         self.created_at = time.time()
@@ -101,13 +105,23 @@ class VadSession:
             speech = self.vad.is_speech(frame, sample_rate)
             if speech:
                 if not self.in_speech:
-                    self.in_speech = True
-                    self.silence_acc = 0
-                    last_trigger = "start"
+                    # Accumulate speech frames before confirming start
+                    self.speech_acc += self.frame_ms
+                    self.pending_speech = True
+                    if self.speech_acc >= self.min_speech_ms:
+                        self.in_speech = True
+                        self.pending_speech = False
+                        self.silence_acc = 0
+                        last_trigger = "start"
                 else:
                     last_trigger = "speech"
                 self.buffer_ms += self.frame_ms
             else:
+                if self.pending_speech:
+                    # Reset pending speech if silence interrupts before confirmation
+                    self.pending_speech = False
+                    self.speech_acc = 0
+                    self.buffer_ms = 0
                 if self.in_speech:
                     self.silence_acc += self.frame_ms
                     last_trigger = "silence"
@@ -115,6 +129,7 @@ class VadSession:
                         self.in_speech = False
                         self.buffer_ms = 0
                         self.silence_acc = 0
+                        self.speech_acc = 0
                         last_trigger = "stop"
                 else:
                     last_trigger = "silence"
@@ -167,6 +182,7 @@ async def frame(req: FrameRequest):
                 aggressiveness=req.aggressiveness,
                 frame_ms=req.frame_ms,
                 silence_ms=req.silence_ms,
+                min_speech_ms=req.min_speech_ms,
             )
         session = sessions[req.session_id]
 
