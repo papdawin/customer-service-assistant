@@ -45,7 +45,8 @@ class FrameRequest(BaseModel):
     aggressiveness: int = 3
     silence_ms: int = 250
     min_speech_ms: int = 150  # Minimum speech duration before triggering start
-    energy_threshold: float = 300.0  # Minimum RMS energy to consider as speech
+    energy_threshold: float = 500.0  # Minimum RMS energy to consider as speech
+    max_speech_ms: int = 30000  # Maximum speech duration before forcing stop
     close: bool = False
 
 
@@ -94,12 +95,13 @@ def run_offline_vad(
 
 
 class VadSession:
-    def __init__(self, aggressiveness: int, frame_ms: int, silence_ms: int, min_speech_ms: int = 150, energy_threshold: float = 300.0):
+    def __init__(self, aggressiveness: int, frame_ms: int, silence_ms: int, min_speech_ms: int = 150, energy_threshold: float = 500.0, max_speech_ms: int = 30000):
         self.vad = webrtcvad.Vad(aggressiveness)
         self.frame_ms = frame_ms
         self.silence_ms = silence_ms
         self.min_speech_ms = min_speech_ms  # Minimum speech duration before confirming
         self.energy_threshold = energy_threshold  # Minimum RMS energy to consider as potential speech
+        self.max_speech_ms = max_speech_ms  # Maximum speech duration before forcing stop (30s default)
         self.in_speech = False
         self.pending_speech = False  # Speech detected but not yet confirmed
         self.speech_acc = 0  # Accumulated speech duration
@@ -119,6 +121,15 @@ class VadSession:
             energy = frame_energy(frame)
             # Only check VAD if energy is above threshold
             speech = energy >= self.energy_threshold and self.vad.is_speech(frame, sample_rate)
+
+            # Force stop if speech has been going on too long
+            if self.in_speech and self.buffer_ms >= self.max_speech_ms:
+                self.in_speech = False
+                self.buffer_ms = 0
+                self.silence_acc = 0
+                self.speech_acc = 0
+                return "stop"
+
             if speech:
                 if not self.in_speech:
                     # Accumulate speech frames before confirming start
@@ -201,6 +212,7 @@ async def frame(req: FrameRequest):
                 silence_ms=req.silence_ms,
                 min_speech_ms=req.min_speech_ms,
                 energy_threshold=req.energy_threshold,
+                max_speech_ms=req.max_speech_ms,
             )
         session = sessions[req.session_id]
 
