@@ -114,6 +114,7 @@ class VadSession:
                         self.silence_acc = 0
                         last_trigger = "start"
                 else:
+                    self.silence_acc = 0  # Reset silence counter when speech continues
                     last_trigger = "speech"
                 self.buffer_ms += self.frame_ms
             else:
