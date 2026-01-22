@@ -168,7 +168,7 @@ class VadSession:
                         self.buffer_ms = 0
                         self.silence_acc = 0
                         self.speech_acc = 0
-                        last_trigger = "stop"
+                        return "stop"  # Return immediately, don't let subsequent frames override
                 else:
                     last_trigger = "silence"
         return last_trigger
