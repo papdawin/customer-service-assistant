@@ -1,12 +1,24 @@
 import asyncio
 import base64
 import logging
+import struct
 import time
 from typing import Dict, List, Tuple
 
 import webrtcvad
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+
+def frame_energy(frame: bytes) -> float:
+    """Calculate RMS energy of a 16-bit PCM frame."""
+    if len(frame) < 2:
+        return 0.0
+    samples = struct.unpack(f"<{len(frame)//2}h", frame)
+    if not samples:
+        return 0.0
+    sum_sq = sum(s * s for s in samples)
+    return (sum_sq / len(samples)) ** 0.5
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("vad")
@@ -33,6 +45,7 @@ class FrameRequest(BaseModel):
     aggressiveness: int = 3
     silence_ms: int = 250
     min_speech_ms: int = 150  # Minimum speech duration before triggering start
+    energy_threshold: float = 300.0  # Minimum RMS energy to consider as speech
     close: bool = False
 
 
@@ -81,11 +94,12 @@ def run_offline_vad(
 
 
 class VadSession:
-    def __init__(self, aggressiveness: int, frame_ms: int, silence_ms: int, min_speech_ms: int = 150):
+    def __init__(self, aggressiveness: int, frame_ms: int, silence_ms: int, min_speech_ms: int = 150, energy_threshold: float = 300.0):
         self.vad = webrtcvad.Vad(aggressiveness)
         self.frame_ms = frame_ms
         self.silence_ms = silence_ms
         self.min_speech_ms = min_speech_ms  # Minimum speech duration before confirming
+        self.energy_threshold = energy_threshold  # Minimum RMS energy to consider as potential speech
         self.in_speech = False
         self.pending_speech = False  # Speech detected but not yet confirmed
         self.speech_acc = 0  # Accumulated speech duration
@@ -102,7 +116,9 @@ class VadSession:
         frames = chunk_frames(pcm, sample_rate, self.frame_ms)
         last_trigger = "silence"
         for frame in frames:
-            speech = self.vad.is_speech(frame, sample_rate)
+            energy = frame_energy(frame)
+            # Only check VAD if energy is above threshold
+            speech = energy >= self.energy_threshold and self.vad.is_speech(frame, sample_rate)
             if speech:
                 if not self.in_speech:
                     # Accumulate speech frames before confirming start
@@ -184,6 +200,7 @@ async def frame(req: FrameRequest):
                 frame_ms=req.frame_ms,
                 silence_ms=req.silence_ms,
                 min_speech_ms=req.min_speech_ms,
+                energy_threshold=req.energy_threshold,
             )
         session = sessions[req.session_id]
 
