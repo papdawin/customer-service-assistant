@@ -9,7 +9,7 @@ DATA_DIR = os.getenv("DATA_DIR", "/app/data")
 
 VLLM_BASE_URL = os.getenv("VLLM_BASE_URL")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "dummy")
-LLM_MODEL = os.getenv("LLM_MODEL", "google/gemma-2-2b-it")
+LLM_MODEL = os.getenv("LLM_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 
 TOP_K = int(os.getenv("TOP_K", "3"))
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "320"))

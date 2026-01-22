@@ -12,7 +12,7 @@ services:
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - NCCL_IB_DISABLE=1
     command:
-      - "--model=google/gemma-2-2b-it"
+      - "--model=Qwen/Qwen2.5-7B-Instruct"
       - "--dtype=bfloat16"
       - "--tensor-parallel-size=1"
       - "--gpu-memory-utilization=0.7"
