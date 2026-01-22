@@ -85,6 +85,8 @@ def query(response: Response, payload: Query = Body(...)):
     resp = llm.invoke(messages)
     llm_ms = round((time.perf_counter() - tl0) * 1000, 1)
 
+    print(f"[RAG] LLM answer: {resp.content}")
+
     total_ms = round((time.perf_counter() - t0) * 1000, 1)
     response.headers["Server-Timing"] = (
         f"retrieval;dur={retrieval_ms},llm;dur={llm_ms},total;dur={total_ms}"
