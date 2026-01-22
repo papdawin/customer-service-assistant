@@ -119,11 +119,19 @@ class VadSession:
         last_trigger = "silence"
         for frame in frames:
             energy = frame_energy(frame)
-            # Only check VAD if energy is above threshold
-            speech = energy >= self.energy_threshold and self.vad.is_speech(frame, sample_rate)
+            vad_says_speech = self.vad.is_speech(frame, sample_rate) if energy >= self.energy_threshold else False
+            speech = energy >= self.energy_threshold and vad_says_speech
+
+            # Debug logging
+            if self.in_speech:
+                logger.debug(
+                    "energy=%.0f threshold=%.0f vad=%s silence_acc=%d/%d",
+                    energy, self.energy_threshold, vad_says_speech, self.silence_acc, self.silence_ms
+                )
 
             # Force stop if speech has been going on too long
             if self.in_speech and self.buffer_ms >= self.max_speech_ms:
+                logger.info("Force stop: max speech duration reached (%d ms)", self.buffer_ms)
                 self.in_speech = False
                 self.buffer_ms = 0
                 self.silence_acc = 0
@@ -153,7 +161,9 @@ class VadSession:
                 if self.in_speech:
                     self.silence_acc += self.frame_ms
                     last_trigger = "silence"
+                    logger.debug("Silence accumulating: %d/%d ms", self.silence_acc, self.silence_ms)
                     if self.silence_acc >= self.silence_ms:
+                        logger.info("Stop triggered: silence_acc=%d >= silence_ms=%d", self.silence_acc, self.silence_ms)
                         self.in_speech = False
                         self.buffer_ms = 0
                         self.silence_acc = 0
