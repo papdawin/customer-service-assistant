@@ -67,7 +67,7 @@ def query(response: Response, payload: Query = Body(...)):
         question = payload.prompt()
     except ValueError:
         raise HTTPException(status_code=400, detail="Empty question/text payload")
-    print(f"[RAG] Incoming question: {question}")
+    print(f"[RAG] Incoming question: {question}", flush=True)
     tr0 = time.perf_counter()
     docs = retrieve_documents(app.state.retriever, f"query: {question}")
     retrieval_ms = round((time.perf_counter() - tr0) * 1000, 1)
@@ -77,15 +77,15 @@ def query(response: Response, payload: Query = Body(...)):
     preview = ctx[:800]
     if len(ctx) > 800:
         preview += " …"
-    print(f"[RAG] Retrieved {len(docs)} docs for tenant '{TENANT_ID}': {sources}")
-    print(f"[RAG] Context preview:\n{preview}")
+    print(f"[RAG] Retrieved {len(docs)} docs for tenant '{TENANT_ID}': {sources}", flush=True)
+    print(f"[RAG] Context preview:\n{preview}", flush=True)
 
     tl0 = time.perf_counter()
     messages = prompt.format_messages(question=question, context=ctx)
     resp = llm.invoke(messages)
     llm_ms = round((time.perf_counter() - tl0) * 1000, 1)
 
-    print(f"[RAG] LLM answer: {resp.content}")
+    print(f"[RAG] LLM answer: {resp.content}", flush=True)
 
     total_ms = round((time.perf_counter() - t0) * 1000, 1)
     response.headers["Server-Timing"] = (
