@@ -82,7 +82,14 @@ def query(response: Response, payload: Query = Body(...)):
 
     tl0 = time.perf_counter()
     messages = prompt.format_messages(question=question, context=ctx)
-    resp = llm.invoke(messages)
+    try:
+        resp = llm.invoke(messages)
+    except Exception as exc:
+        print(f"[RAG] LLM invoke failed: {exc!r}", flush=True)
+        raise HTTPException(
+            status_code=503,
+            detail="LLM service unavailable"
+        )
     llm_ms = round((time.perf_counter() - tl0) * 1000, 1)
 
     print(f"[RAG] LLM answer: {resp.content}", flush=True)
