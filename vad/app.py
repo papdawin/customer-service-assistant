@@ -1,12 +1,24 @@
 import asyncio
 import base64
 import logging
+import struct
 import time
 from typing import Dict, List, Tuple
 
 import webrtcvad
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+
+def frame_energy(frame: bytes) -> float:
+    """Calculate RMS energy of a 16-bit PCM frame."""
+    if len(frame) < 2:
+        return 0.0
+    samples = struct.unpack(f"<{len(frame)//2}h", frame)
+    if not samples:
+        return 0.0
+    sum_sq = sum(s * s for s in samples)
+    return (sum_sq / len(samples)) ** 0.5
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("vad")
@@ -32,6 +44,9 @@ class FrameRequest(BaseModel):
     frame_ms: int = 10
     aggressiveness: int = 3
     silence_ms: int = 250
+    min_speech_ms: int = 150  # Minimum speech duration before triggering start
+    energy_threshold: float = 500.0  # Minimum RMS energy to consider as speech
+    max_speech_ms: int = 30000  # Maximum speech duration before forcing stop
     close: bool = False
 
 
@@ -80,11 +95,16 @@ def run_offline_vad(
 
 
 class VadSession:
-    def __init__(self, aggressiveness: int, frame_ms: int, silence_ms: int):
+    def __init__(self, aggressiveness: int, frame_ms: int, silence_ms: int, min_speech_ms: int = 150, energy_threshold: float = 500.0, max_speech_ms: int = 30000):
         self.vad = webrtcvad.Vad(aggressiveness)
         self.frame_ms = frame_ms
         self.silence_ms = silence_ms
+        self.min_speech_ms = min_speech_ms  # Minimum speech duration before confirming
+        self.energy_threshold = energy_threshold  # Minimum RMS energy to consider as potential speech
+        self.max_speech_ms = max_speech_ms  # Maximum speech duration before forcing stop (30s default)
         self.in_speech = False
+        self.pending_speech = False  # Speech detected but not yet confirmed
+        self.speech_acc = 0  # Accumulated speech duration
         self.silence_acc = 0
         self.buffer_ms = 0
         self.created_at = time.time()
@@ -98,24 +118,57 @@ class VadSession:
         frames = chunk_frames(pcm, sample_rate, self.frame_ms)
         last_trigger = "silence"
         for frame in frames:
-            speech = self.vad.is_speech(frame, sample_rate)
+            energy = frame_energy(frame)
+            vad_says_speech = self.vad.is_speech(frame, sample_rate) if energy >= self.energy_threshold else False
+            speech = energy >= self.energy_threshold and vad_says_speech
+
+            # Debug logging
+            if self.in_speech:
+                logger.debug(
+                    "energy=%.0f threshold=%.0f vad=%s silence_acc=%d/%d",
+                    energy, self.energy_threshold, vad_says_speech, self.silence_acc, self.silence_ms
+                )
+
+            # Force stop if speech has been going on too long
+            if self.in_speech and self.buffer_ms >= self.max_speech_ms:
+                logger.info("Force stop: max speech duration reached (%d ms)", self.buffer_ms)
+                self.in_speech = False
+                self.buffer_ms = 0
+                self.silence_acc = 0
+                self.speech_acc = 0
+                return "stop"
+
             if speech:
                 if not self.in_speech:
-                    self.in_speech = True
-                    self.silence_acc = 0
-                    last_trigger = "start"
+                    # Accumulate speech frames before confirming start
+                    self.speech_acc += self.frame_ms
+                    self.pending_speech = True
+                    if self.speech_acc >= self.min_speech_ms:
+                        self.in_speech = True
+                        self.pending_speech = False
+                        self.silence_acc = 0
+                        last_trigger = "start"
                 else:
+                    self.silence_acc = 0  # Reset silence counter when speech continues
                     last_trigger = "speech"
                 self.buffer_ms += self.frame_ms
             else:
+                if self.pending_speech:
+                    # Reset pending speech if silence interrupts before confirmation
+                    self.pending_speech = False
+                    self.speech_acc = 0
+                    self.buffer_ms = 0
                 if self.in_speech:
                     self.silence_acc += self.frame_ms
                     last_trigger = "silence"
+                    logger.debug("Silence accumulating: %d/%d ms", self.silence_acc, self.silence_ms)
                     if self.silence_acc >= self.silence_ms:
+                        logger.info("Stop triggered: silence_acc=%d >= silence_ms=%d", self.silence_acc, self.silence_ms)
                         self.in_speech = False
                         self.buffer_ms = 0
                         self.silence_acc = 0
-                        last_trigger = "stop"
+                        self.speech_acc = 0
+                        return "stop"  # Return immediately, don't let subsequent frames override
                 else:
                     last_trigger = "silence"
         return last_trigger
@@ -167,6 +220,9 @@ async def frame(req: FrameRequest):
                 aggressiveness=req.aggressiveness,
                 frame_ms=req.frame_ms,
                 silence_ms=req.silence_ms,
+                min_speech_ms=req.min_speech_ms,
+                energy_threshold=req.energy_threshold,
+                max_speech_ms=req.max_speech_ms,
             )
         session = sessions[req.session_id]
 

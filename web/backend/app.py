@@ -347,12 +347,20 @@ async def stream(ws: WebSocket):
     await ws.send_json({"type": "ready", "session_id": session_id})
     buffer = bytearray()
     capturing = False
-    last_voice_ts = None
+    MIN_BUFFER_BYTES = 16000  # Minimum 500ms of audio (16kHz * 2 bytes * 0.5s)
 
     async def finalize_segment():
-        nonlocal buffer, capturing, last_voice_ts
+        nonlocal buffer, capturing
         if not buffer:
             return
+        buffer_ms = len(buffer) / 32  # 16kHz * 2 bytes = 32 bytes per ms
+        if len(buffer) < MIN_BUFFER_BYTES:
+            # Too short, ignore (probably noise)
+            print(f"[VAD] Ignoring short segment: {buffer_ms:.0f}ms < 500ms minimum")
+            buffer.clear()
+            capturing = False
+            return
+        print(f"[VAD] Processing segment: {buffer_ms:.0f}ms")
         await ws.send_json({"type": "status", "message": "speech-stop"})
         wav_audio = pcm16_to_wav_bytes(bytes(buffer), 16000)
         result = await run_pipeline(
@@ -365,7 +373,6 @@ async def stream(ws: WebSocket):
         await ws.send_json({"type": "result", **result})
         buffer.clear()
         capturing = False
-        last_voice_ts = None
 
     async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
         vad_client = VadClient(VAD_URL, client)
@@ -402,14 +409,11 @@ async def stream(ws: WebSocket):
                             await ws.send_json(
                                 {"type": "status", "message": "speech-start"}
                             )
-                        last_voice_ts = time.perf_counter()
-                    else:
-                        # Fallback: if we've been silent for the configured window, stop.
-                        if capturing and last_voice_ts:
-                            if (time.perf_counter() - last_voice_ts) * 1000 >= vad_silence_ms:
-                                await finalize_segment()
+                    elif capturing:
+                        # Still buffer audio during silence period before stop
+                        buffer.extend(pcm_16k)
 
-                    if trigger == "stop" and buffer:
+                    if trigger == "stop" and capturing:
                         await finalize_segment()
                 elif "text" in msg:
                     text = msg["text"]
