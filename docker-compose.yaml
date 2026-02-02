@@ -64,6 +64,7 @@ services:
       - STT_LANGUAGE=hu
     volumes:
       - hf_cache:/root/.cache/huggingface
+      - whisper_cache:/root/.cache/whisper
     ports: ["5001:5001"]
 
   tts:
@@ -126,5 +127,6 @@ services:
 
 volumes:
   hf_cache:
+  whisper_cache:
   indices_examplecompany:
   indices_testcompany:
