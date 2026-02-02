@@ -8,6 +8,7 @@ import {
   recordBtn,
   startBtn,
   stopBtn,
+  ttsAudio,
   vadAggInput,
   vadFrameInput,
   vadSilenceInput,
@@ -25,6 +26,26 @@ let ws;
 let recorder;
 let recorderChunks = [];
 let processorHandle;
+let isMuted = false;
+
+// Mute microphone while TTS is playing
+ttsAudio.addEventListener("play", () => {
+  isMuted = true;
+  setVadState("muted (playing)");
+  logMessage("mic muted (TTS playing)");
+});
+
+ttsAudio.addEventListener("ended", () => {
+  isMuted = false;
+  setVadState("ready");
+  logMessage("mic unmuted (TTS ended)");
+});
+
+ttsAudio.addEventListener("pause", () => {
+  isMuted = false;
+  setVadState("ready");
+  logMessage("mic unmuted (TTS paused)");
+});
 
 async function startStream() {
   await ensureMic();
@@ -85,6 +106,7 @@ async function startStream() {
 
 function handleFrame(floatData, sampleRate) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (isMuted) return; // Don't send audio while TTS is playing
   const pcm = toPCM16(floatData, sampleRate);
   ws.send(pcm.buffer);
 }
