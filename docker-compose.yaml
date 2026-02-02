@@ -15,6 +15,7 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - NCCL_IB_DISABLE=1
+      - LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/usr/lib/x86_64-linux-gnu
     command:
       - "--model=Qwen/Qwen3-4B"
       - "--dtype=bfloat16"
