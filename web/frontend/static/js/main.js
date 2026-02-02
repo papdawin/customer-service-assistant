@@ -26,7 +26,8 @@ let ws;
 let recorder;
 let recorderChunks = [];
 let processorHandle;
-let isMuted = false;
+let isMuted = true; // Start muted until greeting finishes
+let hasGreeting = false;
 
 // Mute microphone while TTS is playing
 ttsAudio.addEventListener("play", () => {
@@ -70,6 +71,7 @@ async function startStream() {
         silence_ms: Number(vadSilenceInput.value) || 250,
       },
     };
+    hasGreeting = !!settings.greeting_text;
     ws.send(JSON.stringify(settings));
     logMessage("sent stream settings: " + JSON.stringify(settings));
   };
@@ -79,9 +81,16 @@ async function startStream() {
       const msg = JSON.parse(event.data);
       if (msg.type === "ready") {
         logMessage(`session ready (${msg.session_id})`);
-        setVadState("ready");
+        // Only unmute if there's no greeting (greeting will unmute when done)
+        if (!hasGreeting) {
+          isMuted = false;
+          setVadState("ready");
+        } else {
+          setVadState("muted (waiting for greeting)");
+        }
       } else if (msg.type === "greeting") {
         logMessage("playing greeting...");
+        isMuted = true; // Ensure muted while greeting plays
         renderResult({ audio_b64: msg.audio_b64, audio_mime: msg.audio_mime });
       } else if (msg.type === "status") {
         setVadState(msg.message);
@@ -119,6 +128,8 @@ async function stopStream() {
   } catch (_) {}
   ws = null;
   processorHandle = null;
+  isMuted = true; // Reset for next session
+  hasGreeting = false;
   startBtn.disabled = false;
   stopBtn.disabled = true;
   setStreamState("idle");
