@@ -18,7 +18,7 @@ services:
       - NCCL_IB_DISABLE=1
       - LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/usr/lib/x86_64-linux-gnu
     command:
-      - "--model=Qwen/Qwen3-4B"
+      - "--model=Qwen/Qwen2.5-7B-Instruct"
       - "--dtype=bfloat16"
       - "--tensor-parallel-size=1"
       - "--gpu-memory-utilization=0.7"
