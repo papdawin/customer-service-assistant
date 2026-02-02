@@ -6,8 +6,8 @@ services:
     gpus: all
     environment:
       - HUGGING_FACE_HUB_TOKEN=
-      - CUDA_VISIBLE_DEVICES=2,3
-      - NVIDIA_VISIBLE_DEVICES=2,3
+      - CUDA_VISIBLE_DEVICES=2
+      - NVIDIA_VISIBLE_DEVICES=2
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - NCCL_IB_DISABLE=1
