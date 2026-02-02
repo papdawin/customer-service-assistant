@@ -3,14 +3,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.vllm
-    gpus: all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["2"]
+              capabilities: [gpu]
     environment:
       - HUGGING_FACE_HUB_TOKEN=
-      - CUDA_VISIBLE_DEVICES=2,3
-      - NVIDIA_VISIBLE_DEVICES=2,3
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - NCCL_IB_DISABLE=1
+      - LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/usr/lib/x86_64-linux-gnu
     command:
       - "--model=Qwen/Qwen2.5-7B-Instruct"
       - "--dtype=bfloat16"
@@ -18,6 +23,7 @@ services:
       - "--gpu-memory-utilization=0.7"
       - "--max-model-len=4096"
       - "--port=8000"
+      - "--enforce-eager"
     ports: ["8000:8000"]
     ipc: host
     volumes:

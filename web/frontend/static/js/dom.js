@@ -6,6 +6,7 @@ export const answerEl = document.getElementById("answer");
 export const logEl = document.getElementById("log");
 export const ttsAudio = document.getElementById("ttsAudio");
 
+export const greetingInput = document.getElementById("greetingText");
 export const languageInput = document.getElementById("language");
 export const beamInput = document.getElementById("beamSize");
 export const vadAggInput = document.getElementById("vadAggressiveness");
