@@ -3,6 +3,7 @@ import { ensureMic, startProcessor, toPCM16, currentMicStream } from "./audio.js
 import { API_BASE, DEFAULT_SAMPLE_RATE } from "./config.js";
 import {
   beamInput,
+  greetingInput,
   languageInput,
   recordBtn,
   startBtn,
@@ -41,6 +42,7 @@ async function startStream() {
       language: languageInput.value || "hu",
       beam_size: Number(beamInput.value) || 5,
       sample_rate: DEFAULT_SAMPLE_RATE,
+      greeting_text: greetingInput.value || "",
       vad: {
         aggressiveness: Number(vadAggInput.value) || 3,
         frame_ms: Number(vadFrameInput.value) || 10,
@@ -57,6 +59,9 @@ async function startStream() {
       if (msg.type === "ready") {
         logMessage(`session ready (${msg.session_id})`);
         setVadState("ready");
+      } else if (msg.type === "greeting") {
+        logMessage("playing greeting...");
+        renderResult({ audio_b64: msg.audio_b64, audio_mime: msg.audio_mime });
       } else if (msg.type === "status") {
         setVadState(msg.message);
         logMessage(`vad status: ${msg.message}`);

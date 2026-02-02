@@ -338,6 +338,7 @@ async def stream(ws: WebSocket):
     language = settings.get("language") or "hu"
     beam_size = int(settings.get("beam_size") or 5)
     sample_rate = int(settings.get("sample_rate") or 16000)
+    greeting_text = (settings.get("greeting_text") or "").strip()
     vad_opts = settings.get("vad") or {}
     vad_aggressiveness = int(vad_opts.get("aggressiveness") or 3)
     vad_frame_ms = int(vad_opts.get("frame_ms") or 10)
@@ -345,6 +346,23 @@ async def stream(ws: WebSocket):
     session_id = settings.get("session_id") or str(uuid.uuid4())
 
     await ws.send_json({"type": "ready", "session_id": session_id})
+
+    # Play greeting message if provided
+    if greeting_text:
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as greeting_client:
+            try:
+                tts_resp = await _call_tts(greeting_client, greeting_text)
+                if tts_resp.get("audio_b64"):
+                    await ws.send_json({
+                        "type": "greeting",
+                        "audio_b64": tts_resp["audio_b64"],
+                        "audio_mime": tts_resp.get("audio_mime", "audio/wav"),
+                    })
+            except Exception as exc:
+                await ws.send_json({
+                    "type": "error",
+                    "message": f"greeting tts failed: {exc}",
+                })
     buffer = bytearray()
     capturing = False
     last_voice_ts = None
