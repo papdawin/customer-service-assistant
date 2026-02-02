@@ -22,6 +22,7 @@ services:
       - "--gpu-memory-utilization=0.7"
       - "--max-model-len=4096"
       - "--port=8000"
+      - "--enforce-eager"
     ports: ["8000:8000"]
     ipc: host
     volumes:
