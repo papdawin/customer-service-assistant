@@ -55,11 +55,21 @@ async def transcribe(
 
         response.headers["Server-Timing"] = f"transcribe;dur={transcribe_ms},total;dur={total_ms}"
 
+        # Filter out hallucinations using no_speech_prob
+        segments = result.get("segments") or []
+        NO_SPEECH_THRESHOLD = 0.5
+        avg_no_speech_prob = sum(s.get("no_speech_prob", 0) for s in segments) / len(segments) if segments else 1.0
+
+        text = (result.get("text") or "").strip()
+        if avg_no_speech_prob > NO_SPEECH_THRESHOLD:
+            text = ""  # Likely not speech, discard transcription
+
         return {
-            "text": (result.get("text") or "").strip(),
+            "text": text,
             "lang": result.get("language") or language or DEFAULT_LANGUAGE,
-            "duration": (result.get("segments") or [])[-1]["end"] if result.get("segments") else None,
+            "duration": segments[-1]["end"] if segments else None,
             "timings": {"transcribe_ms": transcribe_ms, "total_ms": total_ms},
+            "no_speech_prob": round(avg_no_speech_prob, 3),
         }
     finally:
         try:
