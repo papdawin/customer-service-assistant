@@ -34,7 +34,7 @@ class AnalyzeRequest(BaseModel):
     sample_rate: int = 16000
     frame_ms: int = Field(10, description="frame size in ms (10/20/30)")
     aggressiveness: int = Field(3, ge=0, le=3)
-    silence_ms: int = Field(500, description="silence threshold before stop")
+    silence_ms: int = Field(250, description="silence threshold before stop")
 
 
 class FrameRequest(BaseModel):
@@ -43,8 +43,8 @@ class FrameRequest(BaseModel):
     sample_rate: int = 16000
     frame_ms: int = 10
     aggressiveness: int = 3
-    silence_ms: int = 500
-    min_speech_ms: int = 500  # Minimum speech duration before triggering start
+    silence_ms: int = 250
+    min_speech_ms: int = 150  # Minimum speech duration before triggering start
     energy_threshold: float = 500.0  # Minimum RMS energy to consider as speech
     max_speech_ms: int = 30000  # Maximum speech duration before forcing stop
     close: bool = False
