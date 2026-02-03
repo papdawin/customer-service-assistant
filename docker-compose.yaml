@@ -1,5 +1,6 @@
 services:
   vllm:
+    container_name: vllm
     build:
       context: .
       dockerfile: Dockerfile.vllm
@@ -29,6 +30,7 @@ services:
     volumes:
       - hf_cache:/root/.cache/huggingface
   rag-examplecompany:
+    container_name: rag-examplecompany
     build: ./rag
     command: ["uvicorn","app:app","--host","0.0.0.0","--port","8080"]
     environment:
@@ -40,6 +42,7 @@ services:
     ports: ["8101:8080"]
 
   rag-testcompany:
+    container_name: rag-testcompany
     build: ./rag
     command: ["uvicorn","app:app","--host","0.0.0.0","--port","8080"]
     environment:
@@ -51,6 +54,7 @@ services:
     ports: ["8102:8080"]
 
   stt:
+    container_name: stt
     build: ./stt
     gpus:
       - driver: nvidia
@@ -67,6 +71,7 @@ services:
     ports: ["5001:5001"]
 
   tts:
+    container_name: tts
     build: ./tts
     environment:
       - PIPER_VOICE=/voices/hu_HU-berta-medium.onnx
@@ -75,10 +80,12 @@ services:
     ports: ["5002:5002"]
 
   vad:
+    container_name: vad
     build: ./vad
     ports: ["19001:9001"]
 
   web-testcompany:
+    container_name: web-testcompany
     build: ./web
     environment:
       - STT_URL=http://stt:5001/transcribe
@@ -92,6 +99,7 @@ services:
     ports: ["8090:8090"]
 
   web-frontend-testcompany:
+    container_name: web-frontend-testcompany
     build: ./web/frontend
     environment:
       - API_BASE=http://localhost:8090
@@ -102,6 +110,7 @@ services:
     ports: ["8080:8080"]
 
   web-examplecompany:
+    container_name: web-examplecompany
     build: ./web
     environment:
       - STT_URL=http://stt:5001/transcribe
@@ -115,6 +124,7 @@ services:
     ports: ["8091:8091"]
 
   web-frontend-examplecompany:
+    container_name: web-frontend-examplecompany
     build: ./web/frontend
     environment:
       - API_BASE=http://localhost:8091
