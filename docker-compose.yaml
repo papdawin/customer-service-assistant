@@ -12,7 +12,7 @@ services:
               device_ids: ["2"]
               capabilities: [gpu]
     environment:
-      - HUGGING_FACE_HUB_TOKEN=
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - NCCL_IB_DISABLE=1
@@ -62,7 +62,7 @@ services:
         capabilities: [gpu]
     environment:
       - HF_HOME=/root/.cache/huggingface
-      - HUGGING_FACE_HUB_TOKEN=
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
       - PYTORCH_ALLOC_CONF=expandable_segments:True
       - STT_MODEL_ID=large-v3
       - STT_LANGUAGE=hu
